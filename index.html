@@ -118,6 +118,9 @@
     <main class="h-screen w-full overflow-y-auto z-10 relative" id="main-scroll">
         <header class="sticky top-0 bg-stone-950/95 backdrop-blur-xl border-b border-white/10 p-6 z-50 flex flex-col items-center shadow-2xl">
             <h1 class="shojumaru text-5xl text-orange-600 mb-6 tracking-tighter drop-shadow-md">NarutoLegends</h1>
+            <button onclick="openSettingsModal()" class="absolute top-6 right-6 text-white/50 hover:text-white z-20 bg-black/60 p-2 rounded-full backdrop-blur-md border border-white/10 transition-all" title="Configurações de API">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            </button>
             <div class="w-full max-w-2xl relative">
                 <input type="text" id="global-search" placeholder="Procurar Shinobi, Clã ou Vila Oculta..." 
                        class="w-full bg-zinc-900 border border-zinc-700 rounded-full px-8 py-3 text-sm focus:outline-none focus:border-orange-500 transition-all text-white shadow-inner">
@@ -137,6 +140,39 @@
             </div>
         </div>
     </main>
+
+    <!-- MODAL DE CONFIGURAÇÃO DE API -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/80 z-[100] hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-[#0a0a0a] border border-orange-600/50 rounded-2xl p-8 max-w-md w-full mx-4 shadow-[0_0_30px_rgba(255,107,0,0.2)] relative">
+            <button onclick="closeSettingsModal()" class="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <h2 class="shojumaru text-2xl text-orange-500 mb-4 text-center">Configurações de Chakra</h2>
+            <p class="text-sm text-zinc-400 mb-6 text-center">Para se comunicar mentalmente com os Shinobis, você precisa fornecer sua própria chave de API do Gemini 2.5 Flash.</p>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-orange-400 uppercase tracking-widest mb-2">Chave da API (Google AI Studio)</label>
+                    <input type="password" id="api-key-input" placeholder="AIzaSy..." class="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-orange-500 text-white transition-colors">
+                </div>
+
+                <div class="bg-zinc-900/50 p-4 rounded-xl border border-white/5 text-xs text-zinc-400">
+                    <p class="mb-2"><strong>Como conseguir uma chave?</strong></p>
+                    <ol class="list-decimal list-inside space-y-1">
+                        <li>Acesse o <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-400 hover:text-blue-300 underline">Google AI Studio</a></li>
+                        <li>Crie uma nova "API key" gratuita</li>
+                        <li>Cole o código acima</li>
+                    </ol>
+                    <p class="mt-2 italic text-orange-400/80">Sua chave será salva localmente (no seu navegador) apenas.</p>
+                </div>
+
+                <button onclick="saveApiKey()" class="w-full bg-orange-600 py-3 rounded-xl font-black text-sm hover:bg-orange-500 text-white tracking-widest shadow-lg transition-all mt-4">
+                    SALVAR CHAVE
+                </button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- SIDEBAR / DETALHES -->
     <aside id="char-sidebar" class="fixed top-0 right-0 h-full w-full sm:w-[500px] bg-[#0a0a0a] border-l border-white/10 z-[60] drawer-closed transition-transform duration-500 ease-in-out flex flex-col shadow-2xl">
@@ -195,7 +231,7 @@
     <script>
         const PRIMARY_API = "https://dattebayo-api.onrender.com";
         const FALLBACK_API = "https://narutodb.xyz/api/character/search?name=";
-        const apiKey = ""; 
+        let apiKey = localStorage.getItem("gemini_api_key") || "";
 
         // ELITE ABSOLUTA: Todos os Kages, Lendas, Akatsuki e Bijuus exigidos.
         const HIERARCHY_MAP = [
@@ -543,11 +579,29 @@
             const text = input.value.trim();
             if (!text || !selectedChar) return;
             const box = document.getElementById('chat-box');
+
+            // Check if user pasted API Key directly in chat
+            if (text.startsWith("AIza") && text.length > 30) {
+                apiKey = text;
+                localStorage.setItem('gemini_api_key', apiKey);
+                box.innerHTML += `<div class="chat-msg-ai text-xs font-bold text-green-400">Sistema: <span class="font-normal text-zinc-300">Sincronização de Chakra (API Key) estabelecida via canal mental! Agora você pode falar.</span></div>`;
+                input.value = "";
+                box.scrollTop = box.scrollHeight;
+                return;
+            }
+
             box.innerHTML += `<div class="chat-msg-user text-xs">${text}</div>`;
             input.value = "";
             box.scrollTop = box.scrollHeight;
             
             const nameToUse = selectedChar.customDisplayName || selectedChar.name;
+
+            if (!apiKey) {
+                box.innerHTML += `<div class="chat-msg-ai text-xs font-bold text-red-500">Sistema (Kurama): <span class="font-normal text-zinc-300">Seu fluxo de chakra está interrompido! Para conversar, você precisa da API Key do Google AI Studio (Gemini). <br><br>1. Pegue sua chave grátis aqui: <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-400 underline">Google AI Studio</a><br>2. Clique no <strong>Ícone de Engrenagem</strong> no topo para colar.<br>3. <strong>Ou apenas cole a chave 'AIza...' direto aqui neste chat!</strong></span></div>`;
+                box.scrollTop = box.scrollHeight;
+                return;
+            }
+
             const systemPrompt = `Assuma a identidade de ${nameToUse} de Naruto. Responda rigorosamente com a personalidade dele. Máximo de 2 frases. Português do Brasil.`;
             
             try {
@@ -557,11 +611,41 @@
                     body: JSON.stringify({ contents: [{ parts: [{ text: text }] }], systemInstruction: { parts: [{ text: systemPrompt }] } })
                 });
                 const data = await res.json();
+
+                if (data.error) {
+                     box.innerHTML += `<div class="chat-msg-ai text-[10px] text-red-500 italic font-bold">Erro no jutsu: ${data.error.message || "Chave inválida ou limite excedido."}</div>`;
+                     return;
+                }
+
                 const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Falha na conexão de chakra...";
                 box.innerHTML += `<div class="chat-msg-ai text-xs font-bold text-orange-400">${nameToUse}: <span class="font-normal text-zinc-300">${reply}</span></div>`;
                 box.scrollTop = box.scrollHeight;
             } catch (err) { box.innerHTML += `<div class="text-[10px] text-red-500 italic font-bold">A conexão mental foi cortada.</div>`; }
         }
+
+
+        function openSettingsModal() {
+            document.getElementById('api-key-input').value = apiKey;
+            document.getElementById('settings-modal').classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').classList.add('hidden');
+        }
+
+        function saveApiKey() {
+            const inputVal = document.getElementById('api-key-input').value.trim();
+            if (inputVal) {
+                apiKey = inputVal;
+                localStorage.setItem('gemini_api_key', apiKey);
+            } else {
+                apiKey = "";
+                localStorage.removeItem('gemini_api_key');
+            }
+            closeSettingsModal();
+            alert("Sincronização de chakra atualizada com sucesso!");
+        }
+
 
         window.onload = init;
     </script>
