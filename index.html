@@ -449,7 +449,69 @@
             container.appendChild(node);
         }
 
-        function openCharDetails(char, isKageTier = false) {
+
+        async function fetchCharacterHistory(name) {
+            try {
+                const title = encodeURIComponent(name.replace(/ /g, '_'));
+                const res = await fetch(`https://naruto.fandom.com/pt-br/api.php?action=parse&page=${title}&format=json&prop=text&origin=*`);
+                const data = await res.json();
+
+                if (data && data.parse && data.parse.text) {
+                    const htmlContent = data.parse.text['*'];
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlContent, 'text/html');
+
+                    // Remover elementos inúteis para o texto da história
+                    const selectorsToRemove = ['table', '.toc', '.infobox', '.navbox', 'script', 'style', '.mw-editsection', '.reference', '.thumb'];
+                    selectorsToRemove.forEach(sel => {
+                        doc.querySelectorAll(sel).forEach(el => el.remove());
+                    });
+
+                    // Pegar todos os parágrafos relevantes
+                    const paragraphs = Array.from(doc.querySelectorAll('p'))
+                        .map(p => p.textContent.trim())
+                        .filter(p => p.length > 50); // Ignora parágrafos muito curtos (ex: "Editar", "Página principal", etc)
+
+                    if (paragraphs.length > 0) {
+                        return paragraphs.join('<br><br>');
+                    }
+                }
+            } catch (e) {
+                console.error("Erro ao buscar na wiki PT-BR", e);
+            }
+
+            // Fallback para a Wiki em Inglês se não achar na PT-BR
+            try {
+                const title = encodeURIComponent(name.replace(/ /g, '_'));
+                const res = await fetch(`https://naruto.fandom.com/api.php?action=parse&page=${title}&format=json&prop=text&origin=*`);
+                const data = await res.json();
+
+                if (data && data.parse && data.parse.text) {
+                    const htmlContent = data.parse.text['*'];
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlContent, 'text/html');
+
+                    const selectorsToRemove = ['table', '.toc', '.infobox', '.navbox', 'script', 'style', '.mw-editsection', '.reference', '.thumb'];
+                    selectorsToRemove.forEach(sel => {
+                        doc.querySelectorAll(sel).forEach(el => el.remove());
+                    });
+
+                    const paragraphs = Array.from(doc.querySelectorAll('p'))
+                        .map(p => p.textContent.trim())
+                        .filter(p => p.length > 50);
+
+                    if (paragraphs.length > 0) {
+                        return paragraphs.join('<br><br>');
+                    }
+                }
+            } catch (e) {
+                console.error("Erro ao buscar na wiki EN", e);
+            }
+
+            return "O pergaminho com a história completa deste ninja foi perdido na Grande Guerra Ninja. Dados corrompidos ou não encontrados nos arquivos da Folha.";
+        }
+
+        async function openCharDetails(char, isKageTier = false) {
             selectedChar = char;
             toggleSidebar(true);
             
@@ -479,7 +541,8 @@
             const affStr = Array.isArray(affiliation) ? affiliation.join(', ') : (typeof affiliation === 'string' ? affiliation : "Independente");
             
             const debut = char.debut?.anime || char.debut?.manga || "Desconhecido";
-            document.getElementById('side-bio').innerText = `Ninja de classificação [${rank || 'Especial'}]. Sua lenda iniciou-se em ${debut}. Todos os dados foram verificados no pergaminho principal da folha.`;
+            const sideBio = document.getElementById('side-bio');
+            sideBio.innerHTML = `<span class="animate-pulse text-orange-500 text-xs tracking-widest uppercase font-bold">Resgatando pergaminho da história completa de ${displayName}...</span>`;
             
             document.getElementById('side-clan').innerText = clanStr || "Sem Clã Declarado";
             document.getElementById('side-village').innerText = affStr;
@@ -495,6 +558,10 @@
             
             document.getElementById('chat-box').innerHTML = `<div class="chat-msg-ai italic text-zinc-400 font-medium">Link mental com ${displayName} estabelecido...</div>`;
             switchTab('lore');
+
+            // Busca a história completa
+            const history = await fetchCharacterHistory(char.name);
+            sideBio.innerHTML = history;
         }
 
         function toggleSidebar(open) {
