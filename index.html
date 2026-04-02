@@ -268,9 +268,9 @@
         const HARDCODED_IMAGES = {
             "Jiraiya": "https://static.wikia.nocookie.net/naruto/images/2/21/Profile_Jiraiya.PNG",
             "Shikuro Aburame": "https://lh4.googleusercontent.com/CJpC9HSy5oR0E7hWKV-f_rGz4R4S9fYRxvaXVkUc2hR7xzUO0HVIqAIBZatwHPahABRUz4RQz3nwKMeXXnjFuPuLnb9bhr5Pp4MnAvBDwxxzZh0fqoyr2eLX_LQZLeFKEE4jBB_AAs-HZocZkXms-WNgUlB27ZJaw1bd7Pa5OrfzMBhE9fyMTzRx",
-            "ZETSU": "https://static1.cbrimages.com/wordpress/wp-content/uploads/2021/04/Naruto-Black-White-Zetsu.jpg",
-            "PAIN": "https://static.wikia.nocookie.net/naruto/images/0/06/Nagato_Early_Akatsuki.png/revision/latest/scale-to-width-down/314?cb=20210226002003",
-            "KURAMA": "https://static.wikia.nocookie.net/naruto/images/7/7b/Kurama2.png/revision/latest/scale-to-width-down/500?cb=20140818171718",
+            "Zetsu": "https://static.wikia.nocookie.net/naruto/images/f/f6/Zetsu_Parte_II.png",
+            "Pain": "https://static.wikia.nocookie.net/naruto/images/6/69/Caminho_Deva.png",
+            "Kurama": "https://static.wikia.nocookie.net/naruto/images/7/7b/Kurama2.png/revision/latest/scale-to-width-down/500?cb=20140818171718",
             "Yōji Aburame": "https://static.wikia.nocookie.net/naruto/images/b/bb/Tatsuma_Aburame.png/revision/latest?cb=20141107145937",
             "Kagerō": "https://static.wikia.nocookie.net/naruto/images/2/26/Kagero.PNG/revision/latest/scale-to-width-down/500?cb=20150601141445",
             "Shigezane": "https://lh4.googleusercontent.com/6VsQ3K5OIor7q_kHSfYKKbE8CAxB1xkXTv0DasAefipdkVFgI2ycZrYYojiTNpma9TJ6eiSo4MLV72CApeukU5ZhrzN0psPQdwt2tO07r20lngSOgjEULXmTaFW2kJ7uLiFngKZEznEtW7BxMJ3-pOJLJ21Q38glFAkTtrpX5T7HmvQ1-bZb6i2RamyZ",
@@ -486,6 +486,34 @@
         }
 
 
+
+        async function translateToPT(text) {
+            try {
+                // Quebrar o texto em chunks se for muito grande
+                const maxLen = 1500;
+                let chunks = [];
+                for (let i = 0; i < text.length; i += maxLen) {
+                    chunks.push(text.substring(i, i + maxLen));
+                }
+
+                let translated = "";
+                for (let chunk of chunks) {
+                    const url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pt&dt=t&q=" + encodeURIComponent(chunk);
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    if (data && data[0]) {
+                        translated += data[0].map(x => x[0]).join('');
+                    } else {
+                        translated += chunk;
+                    }
+                }
+                return translated;
+            } catch (e) {
+                console.error("Erro na tradução", e);
+                return text;
+            }
+        }
+
         async function fetchCharacterHistory(name) {
             try {
                 const title = encodeURIComponent(name.replace(/ /g, '_'));
@@ -506,10 +534,12 @@
                     // Pegar todos os parágrafos relevantes
                     const paragraphs = Array.from(doc.querySelectorAll('p'))
                         .map(p => p.textContent.trim())
-                        .filter(p => p.length > 50); // Ignora parágrafos muito curtos (ex: "Editar", "Página principal", etc)
+                        .filter(p => p.length > 50);
 
                     if (paragraphs.length > 0) {
-                        return paragraphs.join('<br><br>');
+                        const englishText = paragraphs.join('<br><br>');
+                        const translatedText = await translateToPT(englishText);
+                        return translatedText;
                     }
                 }
             } catch (e) {
