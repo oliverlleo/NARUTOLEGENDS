@@ -268,8 +268,8 @@
         const HARDCODED_IMAGES = {
             "Jiraiya": "https://static.wikia.nocookie.net/naruto/images/2/21/Profile_Jiraiya.PNG",
             "Shikuro Aburame": "https://lh4.googleusercontent.com/CJpC9HSy5oR0E7hWKV-f_rGz4R4S9fYRxvaXVkUc2hR7xzUO0HVIqAIBZatwHPahABRUz4RQz3nwKMeXXnjFuPuLnb9bhr5Pp4MnAvBDwxxzZh0fqoyr2eLX_LQZLeFKEE4jBB_AAs-HZocZkXms-WNgUlB27ZJaw1bd7Pa5OrfzMBhE9fyMTzRx",
-            "Zetsu": "https://static.wikia.nocookie.net/naruto/images/f/f6/Zetsu_Parte_II.png",
-            "Pain": "https://static.wikia.nocookie.net/naruto/images/6/69/Caminho_Deva.png",
+            "Zetsu": "https://static.wikia.nocookie.net/naruto/images/e/e9/Black_Zetsu.png",
+            "Pain": "https://static.wikia.nocookie.net/naruto/images/4/46/Nagato.png",
             "Kurama": "https://static.wikia.nocookie.net/naruto/images/7/7b/Kurama2.png/revision/latest/scale-to-width-down/500?cb=20140818171718",
             "Yōji Aburame": "https://static.wikia.nocookie.net/naruto/images/b/bb/Tatsuma_Aburame.png/revision/latest?cb=20141107145937",
             "Kagerō": "https://static.wikia.nocookie.net/naruto/images/2/26/Kagero.PNG/revision/latest/scale-to-width-down/500?cb=20150601141445",
@@ -514,42 +514,11 @@
             }
         }
 
+
         async function fetchCharacterHistory(name) {
             try {
                 const title = encodeURIComponent(name.replace(/ /g, '_'));
                 const res = await fetch(`https://naruto.fandom.com/pt-br/api.php?action=parse&page=${title}&format=json&prop=text&origin=*`);
-                const data = await res.json();
-
-                if (data && data.parse && data.parse.text) {
-                    const htmlContent = data.parse.text['*'];
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(htmlContent, 'text/html');
-
-                    // Remover elementos inúteis para o texto da história
-                    const selectorsToRemove = ['table', '.toc', '.infobox', '.navbox', 'script', 'style', '.mw-editsection', '.reference', '.thumb'];
-                    selectorsToRemove.forEach(sel => {
-                        doc.querySelectorAll(sel).forEach(el => el.remove());
-                    });
-
-                    // Pegar todos os parágrafos relevantes
-                    const paragraphs = Array.from(doc.querySelectorAll('p'))
-                        .map(p => p.textContent.trim())
-                        .filter(p => p.length > 50);
-
-                    if (paragraphs.length > 0) {
-                        const englishText = paragraphs.join('<br><br>');
-                        const translatedText = await translateToPT(englishText);
-                        return translatedText;
-                    }
-                }
-            } catch (e) {
-                console.error("Erro ao buscar na wiki PT-BR", e);
-            }
-
-            // Fallback para a Wiki em Inglês se não achar na PT-BR
-            try {
-                const title = encodeURIComponent(name.replace(/ /g, '_'));
-                const res = await fetch(`https://naruto.fandom.com/api.php?action=parse&page=${title}&format=json&prop=text&origin=*`);
                 const data = await res.json();
 
                 if (data && data.parse && data.parse.text) {
@@ -571,13 +540,42 @@
                     }
                 }
             } catch (e) {
+                console.error("Erro ao buscar na wiki PT-BR", e);
+            }
+
+            try {
+                const title = encodeURIComponent(name.replace(/ /g, '_'));
+                const res = await fetch(`https://naruto.fandom.com/api.php?action=parse&page=${title}&format=json&prop=text&origin=*`);
+                const data = await res.json();
+
+                if (data && data.parse && data.parse.text) {
+                    const htmlContent = data.parse.text['*'];
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlContent, 'text/html');
+
+                    const selectorsToRemove = ['table', '.toc', '.infobox', '.navbox', 'script', 'style', '.mw-editsection', '.reference', '.thumb'];
+                    selectorsToRemove.forEach(sel => {
+                        doc.querySelectorAll(sel).forEach(el => el.remove());
+                    });
+
+                    const paragraphs = Array.from(doc.querySelectorAll('p'))
+                        .map(p => p.textContent.trim())
+                        .filter(p => p.length > 50);
+
+                    if (paragraphs.length > 0) {
+                        const englishText = paragraphs.join('<br><br>');
+                        const translatedText = await translateToPT(englishText);
+                        return translatedText;
+                    }
+                }
+            } catch (e) {
                 console.error("Erro ao buscar na wiki EN", e);
             }
 
             return "O pergaminho com a história completa deste ninja foi perdido na Grande Guerra Ninja. Dados corrompidos ou não encontrados nos arquivos da Folha.";
         }
 
-        async function openCharDetails(char, isKageTier = false) {
+async function openCharDetails(char, isKageTier = false) {
             selectedChar = char;
             toggleSidebar(true);
             
@@ -602,11 +600,13 @@
             const titles = char.personal?.titles;
             let rank = Array.isArray(titles) ? titles[0] : titles;
             if(!rank && char.personal?.status) rank = char.personal.status;
+            if(rank) { rank = await translateToPT(rank); }
             
             const affiliation = char.personal?.affiliation;
             const affStr = Array.isArray(affiliation) ? affiliation.join(', ') : (typeof affiliation === 'string' ? affiliation : "Independente");
             
-            const debut = char.debut?.anime || char.debut?.manga || "Desconhecido";
+            let debut = char.debut?.anime || char.debut?.manga || "Desconhecido";
+            if(debut !== "Desconhecido") { debut = await translateToPT(debut); }
             const sideBio = document.getElementById('side-bio');
             sideBio.innerHTML = `<span class="animate-pulse text-orange-500 text-xs tracking-widest uppercase font-bold">Resgatando pergaminho da história completa de ${displayName}...</span>`;
             
@@ -614,7 +614,11 @@
             document.getElementById('side-village').innerText = affStr;
 
             const jutsusCont = document.getElementById('side-jutsus');
-            jutsusCont.innerHTML = (char.jutsu || []).slice(0, 15).map(j => 
+            const translatedJutsus = [];
+            for (let j of (char.jutsu || []).slice(0, 15)) {
+                translatedJutsus.push(await translateToPT(j));
+            }
+            jutsusCont.innerHTML = translatedJutsus.map(j =>
                 `<span class="bg-zinc-800/80 text-zinc-300 text-[10px] px-3 py-1.5 rounded-lg border border-white/10 uppercase font-bold shadow-sm">${j}</span>`
             ).join('');
             
